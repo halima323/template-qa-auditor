@@ -1,0 +1,561 @@
+{
+  "name": "Template QA Auditor - UK Healthcare Comms (Demo v1.0.0)",
+  "nodes": [
+    {
+      "id": "n01",
+      "name": "1. Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "n01w",
+      "name": "1b. Report Webhook (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        552
+      ],
+      "webhookId": "5c0e1f7a-2b9d-4a63-9e41-7d8a3b6c1f20",
+      "notes": "Click 'Listen for test event', then open the Test URL in a browser to see the HTML report.",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "template-qa-demo",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "n02",
+      "name": "2. Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        300
+      ],
+      "notes": "All rules and lists live here.",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Template QA Auditor - single source of truth.\n// Every rule lives here. Change a list or a number and the whole workflow follows.\nconst config = {\n  workflow_version: \"1.0.0\",\n  title: \"Template QA Auditor\",\n  report_date: \"2026-10-06\",\n  minutes_manual_review_per_template: 6, // ASSUMPTION used only for the time-saved estimate. Edit to match your team.\n\n  owners: {\n    compliance: \"Compliance\",\n    clinical: \"Clinical Safety\",\n    config: \"Workflow Config\",\n    content: \"Content & Comms\",\n    data: \"Operations Admin\"\n  },\n\n  severity_weights: { critical: 40, high: 20, medium: 8, low: 3 },\n\n  // US spelling -> UK spelling (whole words, any capitalisation)\n  uk_spelling: {\n    \"organize\": \"organise\", \"organized\": \"organised\", \"organizes\": \"organises\", \"organizing\": \"organising\",\n    \"organization\": \"organisation\", \"organizations\": \"organisations\",\n    \"finalize\": \"finalise\", \"finalized\": \"finalised\", \"finalizing\": \"finalising\",\n    \"recognize\": \"recognise\", \"recognized\": \"recognised\",\n    \"apologize\": \"apologise\", \"apologized\": \"apologised\",\n    \"prioritize\": \"prioritise\", \"prioritized\": \"prioritised\",\n    \"customize\": \"customise\", \"customized\": \"customised\",\n    \"personalize\": \"personalise\", \"personalized\": \"personalised\",\n    \"summarize\": \"summarise\", \"summarized\": \"summarised\",\n    \"minimize\": \"minimise\", \"emphasize\": \"emphasise\", \"realize\": \"realise\", \"realized\": \"realised\",\n    \"authorize\": \"authorise\", \"authorized\": \"authorised\", \"authorization\": \"authorisation\",\n    \"analyze\": \"analyse\", \"analyzed\": \"analysed\", \"analyzing\": \"analysing\",\n    \"color\": \"colour\", \"colors\": \"colours\", \"colored\": \"coloured\",\n    \"favorite\": \"favourite\", \"behavior\": \"behaviour\", \"neighbor\": \"neighbour\",\n    \"honor\": \"honour\", \"labor\": \"labour\", \"flavor\": \"flavour\", \"humor\": \"humour\",\n    \"center\": \"centre\", \"centers\": \"centres\", \"centered\": \"centred\",\n    \"theater\": \"theatre\", \"liter\": \"litre\", \"fiber\": \"fibre\",\n    \"defense\": \"defence\", \"offense\": \"offence\",\n    \"catalog\": \"catalogue\", \"dialog\": \"dialogue\",\n    \"canceled\": \"cancelled\", \"canceling\": \"cancelling\",\n    \"traveled\": \"travelled\", \"traveling\": \"travelling\",\n    \"enrollment\": \"enrolment\", \"fulfill\": \"fulfil\", \"fulfillment\": \"fulfilment\",\n    \"skeptical\": \"sceptical\", \"gray\": \"grey\", \"mom\": \"mum\",\n    \"pediatric\": \"paediatric\", \"orthopedic\": \"orthopaedic\", \"anesthesia\": \"anaesthesia\",\n    \"hemoglobin\": \"haemoglobin\", \"diarrhea\": \"diarrhoea\", \"edema\": \"oedema\",\n    \"tumor\": \"tumour\", \"esthetic\": \"aesthetic\",\n    \"zip code\": \"postcode\"\n  },\n\n  // Wordy phrases -> plain English\n  plain_english: {\n    \"utilise\": \"use\", \"utilize\": \"use\", \"commence\": \"start\", \"prior to\": \"before\",\n    \"in order to\": \"to\", \"assist\": \"help\", \"kindly\": \"please\", \"ascertain\": \"find out\",\n    \"endeavour\": \"try\", \"subsequently\": \"then\", \"at this point in time\": \"now\",\n    \"due to the fact that\": \"because\", \"per our records\": \"our records show\"\n  },\n\n  // Placeholders the platform knows about, with a sample value used to estimate rendered length\n  known_placeholders: {\n    first_name: \"Priya\", last_name: \"Sharma\", org_name: \"Riverside Health\",\n    clinic_name: \"Riverside Surgery\", clinic_phone: \"01632 960000\",\n    appointment_date: \"14/10/2026\", appointment_time: \"09:30\",\n    booking_link: \"https://example.org/b/ab12cd\", survey_link: \"https://example.org/s/ab12cd\",\n    unsubscribe_link: \"https://example.org/u/ab12cd\", reference_number: \"REF-48213\",\n    practitioner_name: \"Dr Patel\"\n  },\n\n  // Approved template types and the placeholders each one must contain\n  type_rules: {\n    appointment_reminder: { required: [\"appointment_date\", \"appointment_time\", \"clinic_name\"] },\n    results_ready: { required: [\"first_name\", \"clinic_name\"] },\n    marketing: { required: [] },\n    survey: { required: [\"org_name\"] },\n    notice: { required: [\"clinic_name\"] }\n  },\n\n  channels: [\"sms\", \"email\"],\n  sms: { single: 160, multi: 153, unicode_single: 70, unicode_multi: 67, max_segments: 2 },\n  email: { subject_max: 60 },\n\n  // Words that must never appear in an SMS body or an email subject line (regular expressions)\n  sensitive_terms: [\n    \"cancer\", \"\\\\bHIV\\\\b\", \"pregnan\\\\w*\", \"miscarriage\", \"mental health\", \"depress\\\\w*\",\n    \"diagnos\\\\w*\", \"chlamydia\", \"hepatitis\", \"oncolog\\\\w*\", \"abortion\", \"terminal illness\"\n  ],\n\n  risky_claims: [\n    \"guarantee\\\\w*\", \"100% (?:safe|effective)\", \"\\\\bcures?\\\\b\", \"\\\\bcured\\\\b\", \"miracle\",\n    \"risk[- ]free\", \"no side effects\", \"clinically proven\", \"instant relief\", \"permanent (?:relief|results)\"\n  ],\n\n  pressure_phrases: [\n    \"act now\", \"last chance\", \"limited time\", \"hurry\", \"don't miss out\",\n    \"don’t miss out\", \"while stocks last\", \"filling fast\"\n  ],\n\n  allowed_caps_words: [\"STOP\", \"NHS\", \"UKHSA\", \"EMMA\", \"HTTPS\", \"HTTP\", \"COVID\"],\n  allowed_email_domains: [\"example.org\", \"example.com\"],\n  free_mail_domains: [\"gmail.com\", \"hotmail.com\", \"hotmail.co.uk\", \"yahoo.com\", \"yahoo.co.uk\", \"outlook.com\", \"icloud.com\"],\n\n  thresholds: { max_sentence_words: 35, max_exclamations: 1, review_below_score: 75 }\n};\n\nreturn [{ json: { config } }];\n"
+      }
+    },
+    {
+      "id": "n03",
+      "name": "3. Load Templates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        300
+      ],
+      "notes": "Replace the DEMO list with your own templates.",
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Demo input: 26 SYNTHETIC templates, some deliberately faulty so the checks have something to find.\n// TO USE YOUR OWN: replace the DEMO array below (keep the same field names), or paste rows from a spreadsheet.\n// Fields: template_id, name, type, channel (sms|email), subject (email only), body, last_edited_by\nconst DEMO = [\n  { template_id: \"T-001\", name: \"Appointment reminder (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, this is a reminder of your appointment at {{clinic_name}} on {{appointment_date}} at {{appointment_time}}. Reply C to cancel.\", last_edited_by: \"Asha\" },\n  { template_id: \"T-002\", name: \"Appointment confirmed (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Your appointment at {{clinic_name}} is confirmed for {{appointment_date}} at {{appointment_time}}. Please arrive early so we can finalize and organize your paperwork.\", last_edited_by: \"Ben\" },\n  { template_id: \"T-003\", name: \"Appointment reminder (email)\", type: \"appointment_reminder\", channel: \"email\", subject: \"Your appointment reminder\",\n    body: \"Dear {{first_name}},\\n\\nThis is a reminder that you have an appointment at {{clinic_name}} on {{appointment_date}}.\\n\\nKind regards,\\nThe Riverside team\", last_edited_by: \"Chloe\" },\n  { template_id: \"T-004\", name: \"Screening result ready (SMS)\", type: \"results_ready\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, your cancer screening result from {{clinic_name}} is ready. Please call {{clinic_phone}}.\", last_edited_by: \"Dev\" },\n  { template_id: \"T-005\", name: \"Wellness plan offer (email)\", type: \"marketing\", channel: \"email\", subject: \"Back pain? We guarantee relief!\",\n    body: \"Hello {{first_name}},\\n\\nOur new wellness plan is guaranteed to cure back pain, with no side effects!!\\n\\nBook today at {{booking_link}}.\\n\\nBest wishes,\\nRiverside Wellness\", last_edited_by: \"Elena\" },\n  { template_id: \"T-006\", name: \"Flu jab offer (SMS)\", type: \"marketing\", channel: \"sms\", subject: \"\",\n    body: \"Flu jabs now available at {{clinic_name}}. Book at {{booking_link}}. Reply STOP to opt out.\", last_edited_by: \"Asha\" },\n  { template_id: \"T-007\", name: \"Booking confirmation (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, your appointment at {{clinic_name}} on {{appointment_date}} at {{appointment_time}} is booked under NHS number 943 476 5919.\", last_edited_by: \"Ben\" },\n  { template_id: \"T-008\", name: \"Appointment details (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Hi {first_name}, your appointment at {{clinicname}} is on {{appointment_date}} at {{appointment_time}}. Room {{room_no}}.\", last_edited_by: \"Chloe\" },\n  { template_id: \"T-009\", name: \"Late cancellation fee (email)\", type: \"notice\", channel: \"email\", subject: \"Late cancellation fee from 10/21/2026\",\n    body: \"Dear {{first_name}},\\n\\nPlease note that appointments at {{clinic_name}} cancelled after 10/21/2026 will incur a fee of $25.\\n\\nKind regards,\\nReception\", last_edited_by: \"Dev\" },\n  { template_id: \"T-010\", name: \"Friendly reminder (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, don’t forget your appointment at {{clinic_name}} on {{appointment_date}} at {{appointment_time}} 😊\", last_edited_by: \"Elena\" },\n  { template_id: \"T-011\", name: \"Appointment preparation (SMS)\", type: \"appointment_reminder\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, this is a message from {{clinic_name}} to remind you about your upcoming appointment on {{appointment_date}} at {{appointment_time}}. Please remember to bring your appointment letter, a list of your current medicines, and any recent test results you have been given by another service. If you need to change or cancel your appointment, please call {{clinic_phone}} as soon as you can so that we can offer your slot to another patient who is waiting.\", last_edited_by: \"Asha\" },\n  { template_id: \"T-012\", name: \"Patient survey (email)\", type: \"survey\", channel: \"email\", subject: \"\",\n    body: \"Hello {{first_name}}, we would value your feedback about {{org_name}}. Please complete our short survey: {{survey_link}}\", last_edited_by: \"Ben\" },\n  { template_id: \"T-013\", name: \"Opening hours change (email)\", type: \"notice\", channel: \"email\", subject: \"URGENT: PLEASE READ NOW – IMPORTANT CHANGES TO YOUR SURGERY OPENING HOURS\",\n    body: \"Dear {{first_name}},\\n\\nFrom 1 November, {{clinic_name}} will open at 8:30 am on weekdays.\\n\\nThank you.\", last_edited_by: \"Chloe\" },\n  { template_id: \"T-014\", name: \"Feedback request (email)\", type: \"survey\", channel: \"email\", subject: \"How did we do?\",\n    body: \"Dear {{first_name}},\\n\\nIn order to improve our service, we kindly ask you to complete this survey prior to {{appointment_date}}: {{survey_link}}. We utilise your feedback to assist other patients.\\n\\nKind regards,\\n{{org_name}}\", last_edited_by: \"Dev\" },\n  { template_id: \"T-015\", name: \"Call-back notice (email)\", type: \"notice\", channel: \"email\", subject: \"We will call you back\",\n    body: \"Dear {{first_name}, our {{clinic_name}} team will call you back today.\\n\\nKind regards,\\nReception\", last_edited_by: \"Elena\" },\n  { template_id: \"T-016\", name: \"Results ready (email)\", type: \"results_ready\", channel: \"email\", subject: \"Your results are ready\",\n    body: \"Dear {{first_name}},\\n\\nYour results are now ready. Please contact {{clinic_name}} on {{clinic_phone}} to arrange a conversation with your clinician.\\n\\nKind regards,\\nThe {{clinic_name}} team\", last_edited_by: \"Asha\" },\n  { template_id: \"T-016\", name: \"Results ready (email) - copy\", type: \"results_ready\", channel: \"email\", subject: \"Your results are ready\",\n    body: \"Dear {{first_name}},\\n\\nYour results are now ready. Please contact {{clinic_name}} on {{clinic_phone}} to arrange a conversation with your clinician.\\n\\nKind regards,\\nThe {{clinic_name}} team\", last_edited_by: \"Ben\" },\n  { template_id: \"T-018\", name: \"Repeat prescription change (email)\", type: \"notice\", channel: \"email\", subject: \"Changes to repeat prescription ordering\",\n    body: \"Dear {{first_name}},\\n\\nFrom next month, if you would like to order a repeat prescription from {{clinic_name}} you will need to use the online service or the NHS App, and if you are not able to use either of these because you do not have internet access or you need extra support, please phone the surgery and a member of staff will help you place your order.  \\n\\nKind regards,\\nReception\", last_edited_by: \"Chloe\" },\n  { template_id: \"T-019\", name: \"Rebooking by text (SMS)\", type: \"notice\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, to rebook your appointment at {{clinic_name}} please text 07700 900123.\", last_edited_by: \"Dev\" },\n  { template_id: \"T-020\", name: \"Feedback by email (email)\", type: \"survey\", channel: \"email\", subject: \"Share your feedback\",\n    body: \"Dear {{first_name}},\\n\\nPlease send feedback about {{org_name}} to dr.jones@gmail.com.\\n\\nKind regards,\\nPatient Experience Team\", last_edited_by: \"Elena\" },\n  { template_id: \"T-021\", name: \"Flu jab push (email)\", type: \"marketing\", channel: \"email\", subject: \"Flu jabs: last chance to book\",\n    body: \"Hello {{first_name}},\\n\\nAct now - appointments for flu jabs at {{clinic_name}} are filling fast. Book at {{booking_link}}.\\n\\nTo stop these emails, unsubscribe here: {{unsubscribe_link}}\\n\\nBest wishes,\\nThe {{clinic_name}} team\", last_edited_by: \"Asha\" },\n  { template_id: \"T-022\", name: \"See you soon (SMS)\", type: \"reminder_v2\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, see you soon at {{clinic_name}}.\", last_edited_by: \"Ben\" },\n  { template_id: \"T-023\", name: \"Empty draft (email)\", type: \"notice\", channel: \"email\", subject: \"Test\",\n    body: \"   \", last_edited_by: \"Chloe\" },\n  { template_id: \"\", name: \"Tomorrow notice (SMS)\", type: \"notice\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, your appointment at {{clinic_name}} is tomorrow.\", last_edited_by: \"Dev\" },\n  { template_id: 25, name: \"Welcome message\", type: \"notice\", channel: null, subject: null,\n    body: \"Hi {{first_name}}, welcome to {{clinic_name}}.\", last_edited_by: null },\n  { template_id: \"T-026\", name: \"Rebooking link (SMS)\", type: \"notice\", channel: \"sms\", subject: \"\",\n    body: \"Hi {{first_name}}, <script>alert('x')</script> your appointment at {{clinic_name}} needs rebooking.\", last_edited_by: \"Elena\" }\n];\n\nif (!Array.isArray(DEMO) || DEMO.length === 0) {\n  throw new Error(\"No templates found. Add at least one template to the DEMO list in node '3. Load Templates'.\");\n}\nreturn DEMO.map(function (t) { return { json: t }; });\n"
+      }
+    },
+    {
+      "id": "n04",
+      "name": "4. Normalise + Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Tidy the input and run the basic data checks (ID, type, channel, empty body).\nconst cfg = $('2. Load Config').first().json.config;\nconst validTypes = Object.keys(cfg.type_rules);\nconst seen = {};\nconst out = [];\nlet n = 0;\n\nconst str = function (v) { return (v === null || v === undefined) ? '' : String(v); };\n\nfor (const item of $input.all()) {\n  n += 1;\n  const r = (item.json && typeof item.json === 'object') ? item.json : {};\n  const j = {\n    row_number: n,\n    template_id: str(r.template_id).trim(),\n    name: str(r.name).trim() || '(unnamed)',\n    type: str(r.type).trim().toLowerCase(),\n    channel: str(r.channel).trim().toLowerCase(),\n    subject: str(r.subject),\n    body: str(r.body),\n    last_edited_by: str(r.last_edited_by).trim() || 'unknown',\n    issues: []\n  };\n  const add = function (code, severity, category, message, evidence, fix) {\n    j.issues.push({ code: code, severity: severity, category: category, owner: cfg.owners[category],\n      message: message, evidence: evidence || '', fix: fix || '', auto_fixable: false });\n  };\n\n  if (!j.template_id) {\n    j.template_id = 'AUTO-' + String(n).padStart(3, '0');\n    add('ID_MISSING', 'medium', 'data', 'Template has no ID, so a temporary one was assigned.', j.template_id, 'Give every template a unique ID such as T-027.');\n  } else {\n    const key = j.template_id.toUpperCase();\n    if (seen[key]) {\n      add('DUP_ID', 'high', 'data', 'This template ID is used more than once.', j.template_id + ' (first seen at row ' + seen[key] + ')', 'Give each template its own ID, or delete the duplicate.');\n    } else {\n      seen[key] = n;\n    }\n  }\n\n  if (validTypes.indexOf(j.type) === -1) {\n    add('TYPE_UNKNOWN', 'high', 'config', 'Template type is not on the approved list, so type-specific rules could not be applied.',\n      j.type || '(blank)', 'Use one of: ' + validTypes.join(', ') + '.');\n  }\n  if (cfg.channels.indexOf(j.channel) === -1) {\n    add('CHANNEL_UNKNOWN', 'high', 'config', 'Channel is missing or not recognised, so delivery checks (length, subject line) were skipped.',\n      j.channel || '(blank)', 'Set the channel to sms or email.');\n  }\n  if (j.body.trim() === '') {\n    add('BODY_EMPTY', 'critical', 'content', 'Template body is empty.', '', 'Write the message text before this template is used.');\n  }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n05",
+      "name": "5. Check UK English + Wording",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// UK English and wording checks: US spelling, US dates, dollar amounts, wordy phrases.\nconst cfg = $('2. Load Config').first().json.config;\nconst escRe = function (s) { return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'); };\n\nconst spellKeys = Object.keys(cfg.uk_spelling).sort(function (a, b) { return b.length - a.length; });\nconst spellRe = new RegExp('\\\\b(' + spellKeys.map(escRe).join('|') + ')\\\\b', 'gi');\nconst plainKeys = Object.keys(cfg.plain_english).sort(function (a, b) { return b.length - a.length; });\nconst plainRe = new RegExp('\\\\b(' + plainKeys.map(escRe).join('|') + ')\\\\b', 'gi');\nconst usDateRe = /\\b(?:0?[1-9]|1[0-2])\\/(?:1[3-9]|2[0-9]|3[01])\\/(?:\\d{4}|\\d{2})\\b/g;\nconst dollarRe = /\\$\\s?\\d[\\d,.]*/g;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const add = function (code, severity, category, message, evidence, fix, auto) {\n    j.issues.push({ code: code, severity: severity, category: category, owner: cfg.owners[category],\n      message: message, evidence: evidence || '', fix: fix || '', auto_fixable: !!auto });\n  };\n  const scan = (j.subject + '\\n' + j.body).replace(/\\{\\{[^}]*\\}\\}/g, ' ').replace(/https?:\\/\\/\\S+/g, ' ');\n\n  const us = {};\n  let m;\n  spellRe.lastIndex = 0;\n  while ((m = spellRe.exec(scan)) !== null) { us[m[1].toLowerCase()] = cfg.uk_spelling[m[1].toLowerCase()]; }\n  const usList = Object.keys(us).map(function (k) { return k + ' → ' + us[k]; });\n  if (usList.length) {\n    add('SPELL_US', 'medium', 'content', 'US spelling found. Messages for UK patients should use UK English.', usList.join('; '), 'Use the UK spelling shown.', true);\n  }\n\n  const dates = scan.match(usDateRe);\n  if (dates) {\n    add('DATE_US', 'medium', 'content', 'Date looks like US month/day order. UK messages use day/month/year.', Array.from(new Set(dates)).join(', '), 'Write dates as day/month/year, or spell the month (21 October 2026).');\n  }\n  const dollars = scan.match(dollarRe);\n  if (dollars) {\n    add('CURRENCY_USD', 'medium', 'content', 'Dollar amount found in a UK message.', Array.from(new Set(dollars)).join(', '), 'Confirm the amount and use £.');\n  }\n\n  const wordy = {};\n  plainRe.lastIndex = 0;\n  while ((m = plainRe.exec(scan)) !== null) { wordy[m[1].toLowerCase()] = cfg.plain_english[m[1].toLowerCase()]; }\n  const wordyList = Object.keys(wordy).map(function (k) { return k + ' → ' + wordy[k]; });\n  if (wordyList.length) {\n    add('PLAIN_ENGLISH', 'low', 'content', 'Wordy or formal phrases found. Plain English is easier to read.', wordyList.join('; '), 'Use the simpler wording shown.', true);\n  }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n06",
+      "name": "6. Check Placeholders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Placeholder checks: brackets, unknown names, wrong case, and required placeholders for the template type.\nconst cfg = $('2. Load Config').first().json.config;\nconst known = Object.keys(cfg.known_placeholders);\nconst norm = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); };\nconst knownNorm = {};\nknown.forEach(function (k) { knownNorm[norm(k)] = k; });\n\nconst lev = function (a, b) {\n  const dp = [];\n  for (let i = 0; i <= a.length; i++) { dp.push([i]); }\n  for (let k = 1; k <= b.length; k++) { dp[0][k] = k; }\n  for (let i = 1; i <= a.length; i++) {\n    for (let k = 1; k <= b.length; k++) {\n      dp[i][k] = Math.min(dp[i - 1][k] + 1, dp[i][k - 1] + 1, dp[i - 1][k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));\n    }\n  }\n  return dp[a.length][b.length];\n};\nconst closest = function (name) {\n  const target = norm(name);\n  let best = null, bestD = 99;\n  known.forEach(function (k) {\n    const d = lev(target, norm(k));\n    if (d < bestD) { bestD = d; best = k; }\n  });\n  return bestD <= 2 ? best : null;\n};\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const add = function (code, severity, category, message, evidence, fix, auto) {\n    j.issues.push({ code: code, severity: severity, category: category, owner: cfg.owners[category],\n      message: message, evidence: evidence || '', fix: fix || '', auto_fixable: !!auto });\n  };\n  const text = j.subject + '\\n' + j.body;\n\n  const opens = (text.match(/\\{\\{/g) || []).length;\n  const closes = (text.match(/\\}\\}/g) || []).length;\n  if (opens !== closes) {\n    add('PH_UNBALANCED', 'high', 'config', 'A placeholder has mismatched brackets, so it will show as raw text to the patient.',\n      opens + ' opening {{ and ' + closes + ' closing }}', 'Make sure every {{ has a matching }}.', true);\n  }\n\n  const single = text.match(/(?<!\\{)\\{\\s*[A-Za-z_][A-Za-z0-9_ ]*\\}(?!\\})/g);\n  if (single) {\n    add('PH_SYNTAX', 'high', 'config', 'Placeholder uses single brackets. The platform needs double brackets.',\n      Array.from(new Set(single)).join(', '), 'Change {name} to {{name}}.', true);\n  }\n\n  const found = [];\n  const re = /\\{\\{\\s*([^{}]+?)\\s*\\}\\}/g;\n  let m;\n  while ((m = re.exec(text)) !== null) { found.push(m[1].trim()); }\n  const distinct = Array.from(new Set(found));\n  j.placeholders = distinct;\n\n  const usedNorm = {};\n  distinct.forEach(function (name) {\n    usedNorm[norm(name)] = true;\n    if (known.indexOf(name) !== -1) { return; }\n    if (known.indexOf(name.toLowerCase()) !== -1) {\n      add('PH_CASE', 'low', 'config', 'Placeholder name has the wrong capitalisation.', '{{' + name + '}}', 'Use {{' + name.toLowerCase() + '}}.', true);\n      return;\n    }\n    if (knownNorm[norm(name)]) {\n      add('PH_UNKNOWN', 'high', 'config', 'Placeholder name is not recognised. It looks like a typo.', '{{' + name + '}}', 'Use {{' + knownNorm[norm(name)] + '}}.', true);\n      return;\n    }\n    const guess = closest(name);\n    add('PH_UNKNOWN', 'high', 'config', 'Placeholder name is not recognised, so it would not be filled in.', '{{' + name + '}}',\n      guess ? 'Did you mean {{' + guess + '}}?' : 'Use one of the approved placeholders, or ask Workflow Config to add this one.', false);\n  });\n\n  const rule = cfg.type_rules[j.type];\n  if (rule && j.body.trim() !== '') {\n    const missing = rule.required.filter(function (k) { return !usedNorm[norm(k)]; });\n    if (missing.length) {\n      add('PH_MISSING_REQUIRED', 'high', 'config', 'A placeholder this type of message needs is missing.',\n        missing.map(function (k) { return '{{' + k + '}}'; }).join(', '), 'Add the missing placeholder(s) so the patient gets the full details.', false);\n    }\n  }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n07",
+      "name": "7. Check Compliance + Safety",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Compliance and safety checks: personal data, sensitive terms in SMS, risky health claims, marketing opt-out, pressure wording, script content.\nconst cfg = $('2. Load Config').first().json.config;\nconst sensitiveRe = new RegExp('(' + cfg.sensitive_terms.join('|') + ')', 'gi');\nconst claimRe = new RegExp('(' + cfg.risky_claims.join('|') + ')', 'gi');\nconst pressureRe = new RegExp('(' + cfg.pressure_phrases.map(function (p) { return p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'); }).join('|') + ')', 'gi');\nconst nhsRe = /\\b\\d{3}[\\s-]?\\d{3}[\\s-]?\\d{4}\\b/g;\nconst mobileRe = /(?:\\+44\\s?7\\d{3}|\\b07\\d{3})\\s?\\d{3}\\s?\\d{3}\\b/g;\nconst emailRe = /[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})/g;\nconst scriptRe = /<\\s*(script|iframe|object|embed)\\b/i;\n\nconst uniq = function (arr) { return Array.from(new Set(arr)); };\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const add = function (code, severity, category, message, evidence, fix) {\n    j.issues.push({ code: code, severity: severity, category: category, owner: cfg.owners[category],\n      message: message, evidence: evidence || '', fix: fix || '', auto_fixable: false });\n  };\n  const raw = j.subject + '\\n' + j.body;\n  const scan = raw.replace(/\\{\\{[^}]*\\}\\}/g, ' ').replace(/https?:\\/\\/\\S+/g, ' ');\n\n  const nhs = scan.match(nhsRe);\n  if (nhs) {\n    add('PII_NHS', 'critical', 'compliance', 'Text contains what looks like an NHS number. Patient identifiers must never be typed into a template.',\n      uniq(nhs).join(', '), 'Remove it. Use a {{reference_number}} placeholder if a reference is needed.');\n  }\n  const mobiles = scan.match(mobileRe);\n  if (mobiles) {\n    add('PII_PHONE', 'high', 'compliance', 'A mobile number is typed into the text. It may be personal, and it will not update if the number changes.',\n      uniq(mobiles).join(', '), 'Use {{clinic_phone}} instead.');\n  }\n  const emails = [];\n  const free = [];\n  let m;\n  emailRe.lastIndex = 0;\n  while ((m = emailRe.exec(scan)) !== null) {\n    const domain = m[1].toLowerCase();\n    if (cfg.allowed_email_domains.indexOf(domain) === -1) {\n      emails.push(m[0]);\n      if (cfg.free_mail_domains.indexOf(domain) !== -1) { free.push(m[0]); }\n    }\n  }\n  if (free.length) {\n    add('PII_EMAIL', 'high', 'compliance', 'A personal-style email address (free webmail) is typed into the text.', uniq(free).join(', '), 'Use an official organisation address.');\n  } else if (emails.length) {\n    add('PII_EMAIL', 'medium', 'compliance', 'An email address is typed into the text.', uniq(emails).join(', '), 'Check it is an approved organisation address.');\n  }\n\n  // Sensitive health terms: never in an SMS body, never in an email subject line (shown in lock-screen previews)\n  const sensitiveText = j.channel === 'sms' ? scan : (j.channel === 'email' ? j.subject : '');\n  if (sensitiveText) {\n    const hits = sensitiveText.match(sensitiveRe);\n    if (hits) {\n      add('SENSITIVE_PREVIEW', 'critical', 'clinical', 'Sensitive health information appears where it can be read on a lock screen or by someone else.',\n        uniq(hits.map(function (h) { return h.toLowerCase(); })).join(', '), 'Remove the condition or result. Ask the patient to contact the clinic or log in instead.');\n    }\n  }\n\n  const claims = scan.match(claimRe);\n  if (claims) {\n    add('CLAIM_RISKY', 'high', 'compliance', 'Absolute or unproven health claim found.',\n      uniq(claims.map(function (c) { return c.toLowerCase(); })).join(', '), 'Remove the claim, or have it approved by Clinical Safety.');\n  }\n\n  if (j.type === 'marketing') {\n    let hasOptOut = false;\n    if (j.channel === 'sms') { hasOptOut = /\\bstop\\b/i.test(scan); }\n    else if (j.channel === 'email') { hasOptOut = /\\{\\{\\s*unsubscribe_link\\s*\\}\\}/i.test(raw) || /unsubscribe/i.test(scan); }\n    else { hasOptOut = /\\bstop\\b/i.test(scan) || /unsubscribe/i.test(raw); }\n    if (!hasOptOut && j.body.trim() !== '') {\n      add('MKT_NO_OPTOUT', 'critical', 'compliance', 'Marketing message has no way to opt out.', '',\n        j.channel === 'sms' ? 'Add \"Reply STOP to opt out.\"' : 'Add an unsubscribe link: {{unsubscribe_link}}.');\n    }\n  }\n\n  const pressure = scan.match(pressureRe);\n  if (pressure) {\n    add('PRESSURE', 'medium', 'content', 'Pressure wording found. It is not appropriate in health communications.',\n      uniq(pressure.map(function (p) { return p.toLowerCase(); })).join(', '), 'Use calm, factual wording.');\n  }\n\n  if (scriptRe.test(raw)) {\n    add('HTML_SCRIPT', 'high', 'compliance', 'Script or embedded-object tags found in the text.', raw.match(scriptRe)[0], 'Remove all script tags. Messages must be plain text or approved HTML only.');\n  }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n08",
+      "name": "8. Check Delivery + Style",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Delivery and style checks: SMS length and characters, email subject and sign-off, capitals, exclamation marks, spacing, readability.\nconst cfg = $('2. Load Config').first().json.config;\nconst GSM = \"@£$¥èéùìòÇ\\nØø\\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\\\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà^{}\\\\[~]|€\";\n\nconst render = function (text) {\n  return text.replace(/\\{\\{\\s*([^{}]+?)\\s*\\}\\}/g, function (all, name) {\n    const v = cfg.known_placeholders[name.trim()];\n    return v !== undefined ? v : 'XXXXXXXX';\n  });\n};\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const add = function (code, severity, category, message, evidence, fix, auto) {\n    j.issues.push({ code: code, severity: severity, category: category, owner: cfg.owners[category],\n      message: message, evidence: evidence || '', fix: fix || '', auto_fixable: !!auto });\n  };\n  const bodyEmpty = j.body.trim() === '';\n\n  if (j.channel === 'sms' && !bodyEmpty) {\n    const sample = render(j.body);\n    const odd = [];\n    for (const ch of sample) { if (GSM.indexOf(ch) === -1) { odd.push(ch); } }\n    const unicode = odd.length > 0;\n    const len = sample.length; // UTF-16 units, which is how SMS counts Unicode text\n    const s = cfg.sms;\n    const segments = unicode ? (len <= s.unicode_single ? 1 : Math.ceil(len / s.unicode_multi))\n                             : (len <= s.single ? 1 : Math.ceil(len / s.multi));\n    j.sms_chars = len;\n    j.sms_segments = segments;\n    j.sms_unicode = unicode;\n    if (unicode) {\n      // Only smart quotes and dashes can be swapped safely. Emoji and other symbols need a person to decide.\n      const swappable = ['‘', '’', '“', '”', '–', '—'];\n      const canAuto = odd.every(function (ch) { return swappable.indexOf(ch) !== -1; });\n      add('SMS_UNICODE', 'medium', 'content', 'Characters outside the standard SMS set (smart quotes, dashes, emoji). The message is sent as Unicode, so each part holds only 70 characters instead of 160.',\n        Array.from(new Set(odd)).slice(0, 6).join(' '),\n        canAuto ? 'Use plain apostrophes and quotes (suggested below).' : 'Use plain apostrophes and quotes (suggested below) and remove emoji or symbols by hand.', canAuto);\n    }\n    if (segments > s.max_segments) {\n      add('SMS_LONG', 'medium', 'content', 'Message will be sent as ' + segments + ' SMS parts (' + len + ' characters once filled in). Longer messages cost more and may arrive out of order.',\n        len + ' characters, limit ' + s.max_segments + ' parts', 'Shorten the message, or move detail to a link.');\n    }\n  }\n\n  if (j.channel === 'email' && !bodyEmpty) {\n    if (j.subject.trim() === '') {\n      add('EMAIL_NO_SUBJECT', 'high', 'content', 'Email has no subject line.', '', 'Add a short, clear subject line.');\n    } else if (j.subject.length > cfg.email.subject_max) {\n      add('EMAIL_SUBJECT_LONG', 'low', 'content', 'Subject line is long and may be cut off on phones.',\n        j.subject.length + ' characters, limit ' + cfg.email.subject_max, 'Shorten to ' + cfg.email.subject_max + ' characters or fewer.');\n    }\n    if (!/(kind regards|best wishes|yours sincerely|yours faithfully|many thanks|thank you|regards)/i.test(j.body)) {\n      add('EMAIL_NO_SIGNOFF', 'low', 'content', 'Email has no sign-off.', '', 'End with a sign-off such as \"Kind regards\".');\n    }\n  }\n\n  if (!bodyEmpty) {\n    const scan = (j.subject + '\\n' + j.body).replace(/\\{\\{[^}]*\\}\\}/g, ' ').replace(/https?:\\/\\/\\S+/g, ' ');\n    const caps = (scan.match(/\\b[A-Z]{4,}\\b/g) || []).filter(function (w) { return cfg.allowed_caps_words.indexOf(w) === -1; });\n    if (caps.length >= 2) {\n      add('CAPS', 'medium', 'content', 'Several words are in ALL CAPITALS, which reads as shouting.', Array.from(new Set(caps)).slice(0, 8).join(', '), 'Use sentence case.');\n    }\n    const bangs = (scan.match(/!/g) || []).length;\n    if (bangs > cfg.thresholds.max_exclamations) {\n      add('EXCLAIM', 'low', 'content', 'Too many exclamation marks for a health message.', bangs + ' found', 'Keep the tone calm. One at most.');\n    }\n    if (/\\S {2,}\\S/.test(j.body) || /[ \\t]+(\\n|$)/.test(j.body) || /^\\s|\\s$/.test(j.body)) {\n      add('SPACING', 'low', 'content', 'Extra spaces at the start, end or between words.', '', 'Remove the extra spaces.', true);\n    }\n    const rendered = render(scan);\n    const sentences = rendered.split(/(?<=[.!?])\\s+|\\n+/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; });\n    let longest = 0;\n    sentences.forEach(function (s) { const w = s.split(/\\s+/).length; if (w > longest) { longest = w; } });\n    j.longest_sentence_words = longest;\n    if (longest > cfg.thresholds.max_sentence_words) {\n      add('READABILITY', 'medium', 'content', 'A sentence is too long to read easily.', 'Longest sentence: ' + longest + ' words (limit ' + cfg.thresholds.max_sentence_words + ')', 'Split it into shorter sentences.');\n    }\n  }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n09",
+      "name": "9. Suggest Safe Fixes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Suggest safe, mechanical fixes only (UK spelling, plain English, spacing, SMS punctuation, bracket typos).\n// Nothing is changed in the original. A person must approve every change. Compliance and clinical issues are never auto-fixed.\nconst cfg = $('2. Load Config').first().json.config;\nconst escRe = function (s) { return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'); };\nconst known = Object.keys(cfg.known_placeholders);\nconst norm = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); };\nconst knownNorm = {};\nknown.forEach(function (k) { knownNorm[norm(k)] = k; });\n\nconst spellRe = new RegExp('\\\\b(' + Object.keys(cfg.uk_spelling).sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|') + ')\\\\b', 'gi');\nconst plainRe = new RegExp('\\\\b(' + Object.keys(cfg.plain_english).sort(function (a, b) { return b.length - a.length; }).map(escRe).join('|') + ')\\\\b', 'gi');\n\nconst matchCase = function (src, rep) {\n  if (src.length > 1 && src === src.toUpperCase()) { return rep.toUpperCase(); }\n  if (src.charAt(0) === src.charAt(0).toUpperCase() && src.charAt(0) !== src.charAt(0).toLowerCase()) { return rep.charAt(0).toUpperCase() + rep.slice(1); }\n  return rep;\n};\n\nconst fixText = function (text, channel, log) {\n  const store = [];\n  let t = text.replace(/\\{\\{[^}]*\\}\\}|https?:\\/\\/\\S+/g, function (m) { store.push(m); return '@@PH' + (store.length - 1) + '@@'; });\n\n  t = t.replace(spellRe, function (m) { const r = matchCase(m, cfg.uk_spelling[m.toLowerCase()]); log.push(m + ' → ' + r); return r; });\n  t = t.replace(plainRe, function (m) { const r = matchCase(m, cfg.plain_english[m.toLowerCase()]); log.push(m + ' → ' + r); return r; });\n\n  const before = t;\n  t = t.replace(/[ \\t]{2,}/g, ' ').replace(/[ \\t]+\\n/g, '\\n').trim();\n  if (t !== before) { log.push('extra spaces removed'); }\n\n  if (channel === 'sms') {\n    const b2 = t;\n    t = t.replace(/[‘’]/g, \"'\").replace(/[“”]/g, '\"').replace(/[–—]/g, '-');\n    if (t !== b2) { log.push('smart punctuation replaced with plain characters'); }\n  }\n\n  t = t.replace(/@@PH(\\d+)@@/g, function (m, i) { return store[Number(i)]; });\n\n  // bracket typos, placeholder names and case\n  t = t.replace(/(?<!\\{)\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}(?!\\})/g, function (m, name) {\n    const k = knownNorm[norm(name)];\n    if (k) { log.push(m + ' → {{' + k + '}}'); return '{{' + k + '}}'; }\n    return m;\n  });\n  t = t.replace(/\\{\\{\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}(?!\\})/g, function (m, name) {\n    const k = knownNorm[norm(name)];\n    if (k) { log.push('closing bracket added: {{' + k + '}}'); return '{{' + k + '}}'; }\n    return m;\n  });\n  t = t.replace(/\\{\\{\\s*([^{}]+?)\\s*\\}\\}/g, function (m, name) {\n    const trimmed = name.trim();\n    const k = knownNorm[norm(trimmed)];\n    if (k && k !== trimmed) { log.push('{{' + trimmed + '}} → {{' + k + '}}'); return '{{' + k + '}}'; }\n    return m;\n  });\n  return t;\n};\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const log = [];\n  j.suggested_subject = fixText(j.subject, j.channel, log);\n  j.suggested_body = fixText(j.body, j.channel, log);\n  j.auto_fixes = Array.from(new Set(log));\n  j.auto_fix_count = j.auto_fixes.length;\n  j.suggestion_changes_text = (j.suggested_subject !== j.subject) || (j.suggested_body !== j.body);\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n10",
+      "name": "10. Score + Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Score each template and decide what happens next.\n// BLOCKED = any critical issue. NEEDS REVIEW = any high issue or a low score. APPROVED WITH NOTES = only minor issues. APPROVED = nothing found.\nconst cfg = $('2. Load Config').first().json.config;\nconst w = cfg.severity_weights;\nconst rank = { critical: 0, high: 1, medium: 2, low: 3 };\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const counts = { critical: 0, high: 0, medium: 0, low: 0 };\n  let penalty = 0;\n  j.issues.forEach(function (i) { counts[i.severity] += 1; penalty += w[i.severity]; });\n  j.issues.sort(function (a, b) { return rank[a.severity] - rank[b.severity]; });\n\n  j.issue_counts = counts;\n  j.issue_total = j.issues.length;\n  j.quality_score = Math.max(0, 100 - penalty);\n\n  if (counts.critical > 0) { j.status = 'BLOCKED'; }\n  else if (counts.high > 0 || j.quality_score < cfg.thresholds.review_below_score) { j.status = 'NEEDS REVIEW'; }\n  else if (j.issues.length > 0) { j.status = 'APPROVED WITH NOTES'; }\n  else { j.status = 'APPROVED'; }\n\n  const teams = [];\n  j.issues.forEach(function (i) { if (teams.indexOf(i.owner) === -1) { teams.push(i.owner); } });\n  j.route_to = teams;\n\n  const manual = j.issues.filter(function (i) { return !i.auto_fixable; }).length;\n  j.manual_issue_count = manual;\n  if (j.status === 'BLOCKED') { j.next_action = 'Do not send. Fix the critical issue(s) and run the check again. Route to: ' + teams.join(', ') + '.'; }\n  else if (j.status === 'NEEDS REVIEW') { j.next_action = 'Hold until reviewed by: ' + teams.join(', ') + '.'; }\n  else if (j.status === 'APPROVED WITH NOTES') { j.next_action = 'Safe to use. Apply the suggested wording fixes when convenient.'; }\n  else { j.next_action = 'No action needed.'; }\n  out.push({ json: j });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "n11",
+      "name": "11. Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1940,
+        300
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "results",
+        "options": {}
+      }
+    },
+    {
+      "id": "n12",
+      "name": "12. Build Run Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Roll the individual results up into one run summary and a flat issue list (easy to paste into a spreadsheet).\nconst cfg = $('2. Load Config').first().json.config;\nconst results = ($input.first().json.results || []);\n\nconst statuses = ['APPROVED', 'APPROVED WITH NOTES', 'NEEDS REVIEW', 'BLOCKED'];\nconst status_counts = {};\nstatuses.forEach(function (s) { status_counts[s] = 0; });\nconst severity_totals = { critical: 0, high: 0, medium: 0, low: 0 };\nconst codeMap = {};\nconst teamMap = {};\nconst issues_flat = [];\nlet scoreSum = 0;\nlet autoFixable = 0;\nlet issueTotal = 0;\n\nresults.forEach(function (r) {\n  status_counts[r.status] = (status_counts[r.status] || 0) + 1;\n  scoreSum += r.quality_score;\n  r.issues.forEach(function (i) {\n    issueTotal += 1;\n    severity_totals[i.severity] += 1;\n    if (i.auto_fixable) { autoFixable += 1; }\n    if (!codeMap[i.code]) { codeMap[i.code] = { code: i.code, severity: i.severity, count: 0, templates: [] }; }\n    codeMap[i.code].count += 1;\n    codeMap[i.code].templates.push(r.template_id);\n    if (!teamMap[i.owner]) { teamMap[i.owner] = {}; }\n    teamMap[i.owner][r.template_id] = true;\n    issues_flat.push({ template_id: r.template_id, template_name: r.name, status: r.status, severity: i.severity, code: i.code,\n      owner: i.owner, message: i.message, evidence: i.evidence, fix: i.fix, auto_fixable: i.auto_fixable });\n  });\n});\n\nconst top_codes = Object.keys(codeMap).map(function (k) { return codeMap[k]; }).sort(function (a, b) { return b.count - a.count; });\nconst team_queue = Object.keys(teamMap).map(function (t) {\n  return { team: t, templates: Object.keys(teamMap[t]) };\n}).sort(function (a, b) { return b.templates.length - a.templates.length; });\n\nconst total = results.length;\nconst summary = {\n  report_date: cfg.report_date,\n  total_templates: total,\n  status_counts: status_counts,\n  block_count: status_counts['BLOCKED'],\n  review_count: status_counts['NEEDS REVIEW'],\n  clean_count: status_counts['APPROVED'] + status_counts['APPROVED WITH NOTES'],\n  average_score: total ? Math.round(scoreSum / total) : 0,\n  issue_total: issueTotal,\n  severity_totals: severity_totals,\n  auto_fixable_issues: autoFixable,\n  top_codes: top_codes,\n  team_queue: team_queue,\n  manual_minutes_assumed: total * cfg.minutes_manual_review_per_template,\n  minutes_per_template_assumption: cfg.minutes_manual_review_per_template\n};\nreturn [{ json: { summary: summary, results: results, issues_flat: issues_flat } }];\n"
+      }
+    },
+    {
+      "id": "n13",
+      "name": "13. Any Blocked Templates?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "n13-c1",
+              "leftValue": "={{ $json.summary.block_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "n14a",
+      "name": "14a. Draft Escalation (not sent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2660,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// At least one template is BLOCKED: write a draft alert. It is NOT sent anywhere. A person copies it into Slack or email.\nconst d = $input.first().json;\nconst blocked = d.results.filter(function (r) { return r.status === 'BLOCKED'; });\nconst lines = blocked.map(function (r) {\n  const crit = r.issues.filter(function (i) { return i.severity === 'critical'; })[0];\n  return '• ' + r.template_id + ' – ' + r.name + ' [' + r.channel + ']: ' + (crit ? crit.message : 'Critical issue') + ' (route to ' + (crit ? crit.owner : 'owner') + ')';\n});\nconst teams = [];\nblocked.forEach(function (r) { r.issues.filter(function (i) { return i.severity === 'critical'; }).forEach(function (i) { if (teams.indexOf(i.owner) === -1) { teams.push(i.owner); } }); });\n\nconst text = ':rotating_light: Template QA: ' + blocked.length + ' template(s) BLOCKED out of ' + d.summary.total_templates + ' checked.\\n' +\n  lines.join('\\n') + '\\n\\nDo not send these until fixed. Teams to action: ' + teams.join(', ') + '.';\nd.alert = {\n  level: 'escalation',\n  draft_only: true,\n  suggested_channel: '#template-qa',\n  subject: 'Template QA: ' + blocked.length + ' blocked template(s)',\n  text: text,\n  blocked_ids: blocked.map(function (r) { return r.template_id; }),\n  teams: teams\n};\nreturn [{ json: d }];\n"
+      }
+    },
+    {
+      "id": "n14b",
+      "name": "14b. Draft All-Clear",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2660,
+        408
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// No template is BLOCKED: write a short all-clear note (draft only, not sent).\nconst d = $input.first().json;\nd.alert = {\n  level: 'all_clear',\n  draft_only: true,\n  suggested_channel: '#template-qa',\n  subject: 'Template QA: no blocked templates',\n  text: 'Template QA: ' + d.summary.total_templates + ' template(s) checked. None blocked. ' + d.summary.review_count + ' need review.',\n  blocked_ids: [],\n  teams: []\n};\nreturn [{ json: d }];\n"
+      }
+    },
+    {
+      "id": "n15",
+      "name": "15. Build HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build a self-contained HTML report (no external files). All text is escaped before it is placed in the page.\nconst cfg = $('2. Load Config').first().json.config;\nconst d = $input.first().json;\nconst s = d.summary;\n\nconst esc = function (v) {\n  return String(v === null || v === undefined ? '' : v)\n    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\n};\nconst pill = function (status) {\n  const cls = { 'APPROVED': 'ok', 'APPROVED WITH NOTES': 'note', 'NEEDS REVIEW': 'warn', 'BLOCKED': 'bad' }[status] || 'note';\n  return '<span class=\"pill ' + cls + '\">' + esc(status) + '</span>';\n};\nconst sevDot = function (sev) { return '<span class=\"sev ' + esc(sev) + '\">' + esc(sev) + '</span>'; };\n\nconst tiles = [\n  ['Templates checked', s.total_templates, ''],\n  ['Approved (incl. notes)', s.clean_count, 'ok'],\n  ['Need review', s.review_count, 'warn'],\n  ['Blocked', s.block_count, 'bad'],\n  ['Average quality score', s.average_score + '/100', ''],\n  ['Issues found', s.issue_total + ' (' + s.auto_fixable_issues + ' auto-fixable)', '']\n].map(function (t) { return '<div class=\"tile ' + t[2] + '\"><div class=\"n\">' + esc(t[1]) + '</div><div class=\"l\">' + esc(t[0]) + '</div></div>'; }).join('');\n\nconst maxCode = s.top_codes.length ? s.top_codes[0].count : 1;\nconst codeRows = s.top_codes.slice(0, 12).map(function (c) {\n  return '<div class=\"bar\"><div class=\"bl\">' + esc(c.code) + ' ' + sevDot(c.severity) + '</div><div class=\"bt\"><div class=\"bf ' + esc(c.severity) + '\" style=\"width:' + Math.round(100 * c.count / maxCode) + '%\"></div></div><div class=\"bn\">' + c.count + '</div></div>';\n}).join('');\n\nconst teamRows = s.team_queue.map(function (t) {\n  return '<tr><td><b>' + esc(t.team) + '</b></td><td>' + t.templates.length + '</td><td>' + esc(t.templates.join(', ')) + '</td></tr>';\n}).join('');\n\nconst rows = d.results.map(function (r) {\n  const issues = r.issues.map(function (i) {\n    return '<li>' + sevDot(i.severity) + ' <b>' + esc(i.code) + '</b>: ' + esc(i.message) +\n      (i.evidence ? ' <span class=\"ev\">Found: ' + esc(i.evidence) + '</span>' : '') +\n      (i.fix ? ' <span class=\"fx\">Fix: ' + esc(i.fix) + '</span>' : '') +\n      (i.auto_fixable ? ' <span class=\"af\">auto-fix suggested</span>' : '') + '</li>';\n  }).join('');\n  const sms = r.channel === 'sms' && r.sms_segments ? ' &middot; ' + r.sms_segments + ' SMS part(s), ' + r.sms_chars + ' chars' : '';\n  const sug = r.suggestion_changes_text\n    ? '<div class=\"sug\"><b>Suggested wording (needs human approval)</b>' +\n      (r.suggested_subject ? '<div><i>Subject:</i> ' + esc(r.suggested_subject) + '</div>' : '') +\n      '<pre>' + esc(r.suggested_body) + '</pre><div class=\"ev\">Changes: ' + esc(r.auto_fixes.join('; ')) + '</div></div>'\n    : '';\n  const detail = '<details><summary>' + r.issue_total + ' issue(s)</summary><div class=\"d\">' +\n    (issues ? '<ul>' + issues + '</ul>' : '<p>No issues found.</p>') +\n    '<div class=\"ev\">Next action: ' + esc(r.next_action) + '</div>' + sug +\n    '<div class=\"orig\"><b>Original text</b>' + (r.subject ? '<div><i>Subject:</i> ' + esc(r.subject) + '</div>' : '') + '<pre>' + esc(r.body) + '</pre></div></div></details>';\n  return '<tr><td>' + esc(r.template_id) + '</td><td>' + esc(r.name) + '<div class=\"sub\">' + esc(r.type || 'no type') + ' &middot; ' + esc(r.channel || 'no channel') + sms + '</div></td><td>' + pill(r.status) +\n    '</td><td class=\"num\">' + r.quality_score + '</td><td>' + esc(r.route_to.join(', ') || '-') + '</td><td>' + detail + '</td></tr>';\n}).join('');\n\nconst alertBox = d.alert\n  ? '<div class=\"alert ' + esc(d.alert.level) + '\"><b>Draft ' + (d.alert.level === 'escalation' ? 'escalation' : 'all-clear') + ' message (not sent)</b><pre>' + esc(d.alert.text) + '</pre></div>'\n  : '';\n\nconst css = ':root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#5d6b7b;--line:#dde2e8;--ok:#1f7a45;--note:#2a6fb0;--warn:#b86e00;--bad:#b3261e}' +\n  '@media(prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--ink:#e8edf2;--mut:#9aa8b8;--line:#2d3745;--ok:#5fcf8b;--note:#7db6ee;--warn:#f0b24d;--bad:#ff8a80}}' +\n  '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}' +\n  '.w{max-width:1100px;margin:0 auto;padding:20px 16px 48px}h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 10px}' +\n  '.m{color:var(--mut)}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}' +\n  '.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}.tile .n{font-size:22px;font-weight:700}.tile .l{color:var(--mut);font-size:12px}' +\n  '.tile.ok .n{color:var(--ok)}.tile.warn .n{color:var(--warn)}.tile.bad .n{color:var(--bad)}' +\n  '.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}' +\n  'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}' +\n  '.num{text-align:right}.sub{color:var(--mut);font-size:12px}.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor;white-space:nowrap}' +\n  '.pill.ok{color:var(--ok)}.pill.note{color:var(--note)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}' +\n  '.sev{font-size:11px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;color:#fff}.sev.critical{background:var(--bad)}.sev.high{background:var(--warn)}.sev.medium{background:var(--note)}.sev.low{background:var(--mut)}' +\n  '.bar{display:grid;grid-template-columns:230px 1fr 36px;gap:8px;align-items:center;margin:5px 0}.bt{background:var(--line);border-radius:4px;height:10px}.bf{height:10px;border-radius:4px}' +\n  '.bf.critical{background:var(--bad)}.bf.high{background:var(--warn)}.bf.medium{background:var(--note)}.bf.low{background:var(--mut)}.bn{text-align:right}' +\n  'details summary{cursor:pointer;color:var(--note)}.d{margin-top:8px}.d ul{padding-left:18px;margin:6px 0}.d li{margin:4px 0}' +\n  '.ev{color:var(--mut);font-size:12px}.fx{color:var(--ok);font-size:12px}.af{font-size:11px;border:1px solid var(--ok);color:var(--ok);border-radius:4px;padding:0 5px}' +\n  'pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;margin:6px 0;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace}' +\n  '.alert{border:1px solid var(--line);border-left:5px solid var(--ok);background:var(--card);border-radius:8px;padding:12px;margin:16px 0}.alert.escalation{border-left-color:var(--bad)}' +\n  '.banner{background:var(--card);border:1px dashed var(--line);border-radius:8px;padding:8px 12px;color:var(--mut);font-size:12px;margin-top:10px}';\n\nconst html = '<!doctype html><html lang=\"en-GB\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>' + esc(cfg.title) + '</title><style>' + css + '</style></head><body><div class=\"w\">' +\n  '<h1>' + esc(cfg.title) + '</h1><div class=\"m\">Run date ' + esc(s.report_date) + ' &middot; workflow v' + esc(cfg.workflow_version) + '</div>' +\n  '<div class=\"banner\">Demo run on synthetic (fictional) templates. Nothing was sent to anyone. Suggested wording is a proposal: a person approves every change.</div>' +\n  '<div class=\"tiles\">' + tiles + '</div>' + alertBox +\n  '<h2>Most common issues</h2><div class=\"card\">' + (codeRows || '<span class=\"m\">No issues found.</span>') + '</div>' +\n  '<h2>Work queue by team</h2><div class=\"card\"><table><thead><tr><th>Team</th><th>Templates</th><th>IDs</th></tr></thead><tbody>' + (teamRows || '<tr><td colspan=\"3\" class=\"m\">Nothing to action.</td></tr>') + '</tbody></table></div>' +\n  '<h2>All templates</h2><div class=\"card\"><table><thead><tr><th>ID</th><th>Template</th><th>Status</th><th class=\"num\">Score</th><th>Route to</th><th>Details</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +\n  '<p class=\"m\">Estimated reviewer time for this batch if checked by hand: about ' + s.manual_minutes_assumed + ' minutes (assumes ' + s.minutes_per_template_assumption + ' minutes per template; edit in 2. Load Config).</p>' +\n  '</div></body></html>';\n\nd.html_report = html;\nreturn [{ json: d }];\n"
+      }
+    },
+    {
+      "id": "n16",
+      "name": "16. Respond (HTML report)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3140,
+        300
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Returns the HTML report when the run started from the webhook. On a manual run it simply passes the data through.",
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html_report }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "s1",
+      "name": "Note s1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        -300
+      ],
+      "parameters": {
+        "content": "## Template QA Auditor\nChecks communication templates (SMS and email) BEFORE they go live.\n\nAll data in this demo is synthetic. Nothing is sent to anyone. It only reports and drafts. A person decides.\n\nAll rules live in **2. Load Config**. Your own templates go in **3. Load Templates**.",
+        "height": 230,
+        "width": 700,
+        "color": 4
+      }
+    },
+    {
+      "id": "s2",
+      "name": "Note s2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        260,
+        -300
+      ],
+      "parameters": {
+        "content": "### What it checks\n- UK spelling, US dates, dollar amounts, wordy phrases\n- Placeholders: brackets, typos, missing required ones\n- Personal data, sensitive terms in SMS, risky claims, marketing opt-out\n- SMS length and characters, email subject and sign-off, tone and readability",
+        "height": 230,
+        "width": 1100,
+        "color": 6
+      }
+    },
+    {
+      "id": "s3",
+      "name": "Note s3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        -300
+      ],
+      "parameters": {
+        "content": "### Scoring\nBLOCKED = any critical issue\nNEEDS REVIEW = any high issue or score under 75\nAPPROVED WITH NOTES = minor issues only\nAPPROVED = nothing found",
+        "height": 230,
+        "width": 520,
+        "color": 3
+      }
+    },
+    {
+      "id": "s4",
+      "name": "Note s4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2180,
+        -300
+      ],
+      "parameters": {
+        "content": "### Outputs\nHTML report (open via the webhook Test URL), a flat issue list for spreadsheets, suggested wording for a human to approve, and a draft alert message (not sent).",
+        "height": 230,
+        "width": 900,
+        "color": 2
+      }
+    }
+  ],
+  "connections": {
+    "1. Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "2. Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b. Report Webhook (GET)": {
+      "main": [
+        [
+          {
+            "node": "2. Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Load Config": {
+      "main": [
+        [
+          {
+            "node": "3. Load Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Load Templates": {
+      "main": [
+        [
+          {
+            "node": "4. Normalise + Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Normalise + Validate Input": {
+      "main": [
+        [
+          {
+            "node": "5. Check UK English + Wording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Check UK English + Wording": {
+      "main": [
+        [
+          {
+            "node": "6. Check Placeholders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Check Placeholders": {
+      "main": [
+        [
+          {
+            "node": "7. Check Compliance + Safety",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Check Compliance + Safety": {
+      "main": [
+        [
+          {
+            "node": "8. Check Delivery + Style",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Check Delivery + Style": {
+      "main": [
+        [
+          {
+            "node": "9. Suggest Safe Fixes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9. Suggest Safe Fixes": {
+      "main": [
+        [
+          {
+            "node": "10. Score + Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10. Score + Triage": {
+      "main": [
+        [
+          {
+            "node": "11. Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "11. Aggregate": {
+      "main": [
+        [
+          {
+            "node": "12. Build Run Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "12. Build Run Summary": {
+      "main": [
+        [
+          {
+            "node": "13. Any Blocked Templates?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "13. Any Blocked Templates?": {
+      "main": [
+        [
+          {
+            "node": "14a. Draft Escalation (not sent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "14b. Draft All-Clear",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14a. Draft Escalation (not sent)": {
+      "main": [
+        [
+          {
+            "node": "15. Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "14b. Draft All-Clear": {
+      "main": [
+        [
+          {
+            "node": "15. Build HTML Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15. Build HTML Report": {
+      "main": [
+        [
+          {
+            "node": "16. Respond (HTML report)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
